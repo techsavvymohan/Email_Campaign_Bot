@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <div class="tw-min-h-[100vh] tw-p-6 tw-w-full tw-max-w-4xl tw-mx-auto tw-flex tw-flex-col tw-gap-6">
+        <div class="tw-text-center tw-mt-4">
+            <h1 class="tw-text-3xl tw-font-bold tw-text-gray-800">Help & User Guide</h1>
+            <p class="tw-text-gray-500 tw-mt-1">Everything you need to know to launch successful outreach campaigns.</p>
+        </div>
+
+        <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-4 tw-mt-4">
+            <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-5 tw-shadow-sm">
+                <div class="tw-w-10 tw-h-10 tw-rounded-full tw-bg-blue-100 tw-text-blue-600 tw-flex tw-items-center tw-justify-center tw-font-bold tw-mb-3">
+                    1
+                </div>
+                <h3 class="tw-font-bold tw-text-gray-800 tw-mb-1">Connect Email</h3>
+                <p class="tw-text-sm tw-text-gray-600">Connect your Gmail, Outlook, or work email. For Gmail, generate an App Password in your Google Account security settings.</p>
+                <a href="{% url 'configure-email' %}" class="tw-text-sm tw-text-blue-600 tw-font-semibold tw-mt-2 tw-inline-block">Connect Now &rarr;</a>
+            </div>
+
+            <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-5 tw-shadow-sm">
+                <div class="tw-w-10 tw-h-10 tw-rounded-full tw-bg-indigo-100 tw-text-indigo-600 tw-flex tw-items-center tw-justify-center tw-font-bold tw-mb-3">
+                    2
+                </div>
+                <h3 class="tw-font-bold tw-text-gray-800 tw-mb-1">Design Template</h3>
+                <p class="tw-text-sm tw-text-gray-600">Write your message and use personalization tags like {% verbatim %}{{name}}{% endverbatim %} or {% verbatim %}{{company}}{% endverbatim %}.</p>
+                <a href="{% url 'email-template-create' %}" class="tw-text-sm tw-text-indigo-600 tw-font-semibold tw-mt-2 tw-inline-block">Create Template &rarr;</a>
+            </div>
+
+            <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-5 tw-shadow-sm">
+                <div class="tw-w-10 tw-h-10 tw-rounded-full tw-bg-green-100 tw-text-green-600 tw-flex tw-items-center tw-justify-center tw-font-bold tw-mb-3">
+                    3
+                </div>
+                <h3 class="tw-font-bold tw-text-gray-800 tw-mb-1">Send Campaign</h3>
+                <p class="tw-text-sm tw-text-gray-600">Upload your Excel or CSV list of recipients, pick a schedule, and let the tool automatically send and follow up.</p>
+                <a href="{% url 'email-campaign-create' %}" class="tw-text-sm tw-text-green-600 tw-font-semibold tw-mt-2 tw-inline-block">Start Campaign &rarr;</a>
+            </div>
+        </div>
+
+        <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-6 tw-shadow-sm tw-mt-4">
+            <h2 class="tw-font-bold tw-text-xl tw-text-gray-800 tw-mb-4">Frequently Asked Questions</h2>
+            
+            <div class="tw-space-y-4 tw-text-sm tw-text-gray-700">
+                <div>
+                    <h4 class="tw-font-semibold tw-text-gray-900">How do I format my Excel / CSV file?</h4>
+                    <p class="tw-text-gray-600 tw-mt-1">Your spreadsheet should have column headers in the first row, such as <code>Email</code>, <code>name</code>, and <code>company</code>. When creating a campaign, you can download our pre-made sample CSV template!</p>
+                </div>
+                <div>
+                    <h4 class="tw-font-semibold tw-text-gray-900">How many emails should I send per day?</h4>
+                    <p class="tw-text-gray-600 tw-mt-1">For optimal deliverability and to avoid spam filters, we recommend keeping outreach under 300-500 emails per day per email account.</p>
+                </div>
+                <div>
+                    <h4 class="tw-font-semibold tw-text-gray-900">How do automated follow-ups work?</h4>
+                    <p class="tw-text-gray-600 tw-mt-1">When creating a campaign, click "Add Follow-up" to schedule a second email a few days later. You can set it to send only if the recipient has NOT replied to your first email.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
