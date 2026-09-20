@@ -1,0 +1,374 @@
+{% extends './html/base.html' %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+<div class="tw-flex tw-flex-col tw-min-h-[100vh] tw-p-4 tw-place-items-center tw-gap-6 tw-max-w-4xl tw-mx-auto">
+    <div class="tw-text-center tw-mt-2">
+        <h1 class="tw-text-3xl tw-font-bold tw-text-gray-800">{% if campaign %}Edit{% else %}Create{% endif %} Email Campaign</h1>
+        <p class="tw-text-gray-500 tw-mt-1">Schedule and send personalized outreach to your recipient list.</p>
+    </div>
+    
+    <div class="alert alert-danger {% if not errors %}tw-hidden{% endif %}" id="template-alert">
+        {% for x in errors %}
+            {{x}}
+        {% endfor %}
+    </div>
+
+    <form action="" method="post" enctype="multipart/form-data" onsubmit="return checkFields()" class="tw-w-full tw-flex tw-flex-col tw-gap-6">
+        {% csrf_token %}
+
+        <!-- Step 1: Campaign Details -->
+        <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-6 tw-shadow-sm tw-flex tw-flex-col tw-gap-4">
+            <h2 class="tw-font-bold tw-text-lg tw-text-gray-800 tw-flex tw-items-center tw-gap-2">
+                <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-blue-600 tw-text-white tw-flex tw-items-center tw-justify-center tw-text-sm">1</span>
+                <span>Campaign Name</span>
+            </h2>
+
+            <div>
+                <label class="form-label tw-font-medium tw-text-gray-700">Campaign Title</label>
+                <input type="text" class="form-control" name="name" autofocus 
+                        value="{% if campaign.name %}{{campaign.name}}{% else %}Outreach Campaign{% endif %}" 
+                        placeholder="e.g. Q1 Client Outreach" maxlength="30" required>
+            </div>
+        </div>
+
+        <!-- Step 2: Upload Recipients -->
+        <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-6 tw-shadow-sm tw-flex tw-flex-col tw-gap-4">
+            <div class="tw-flex tw-justify-between tw-items-center">
+                <h2 class="tw-font-bold tw-text-lg tw-text-gray-800 tw-flex tw-items-center tw-gap-2">
+                    <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-blue-600 tw-text-white tw-flex tw-items-center tw-justify-center tw-text-sm">2</span>
+                    <span>Upload Recipient List (Excel or CSV)</span>
+                </h2>
+                <!-- Sample Download for Non-Tech Users -->
+                <button type="button" onclick="downloadSampleCsv()" class="btn btn-sm btn-outline-primary tw-flex tw-items-center tw-gap-1">
+                    <i class="bi bi-download"></i> Download Sample CSV
+                </button>
+            </div>
+
+            <div class="tw-border-2 tw-border-dashed tw-border-gray-300 tw-rounded-xl tw-p-6 tw-text-center hover:tw-border-blue-500 tw-transition-colors">
+                <input type="file" name="file" accept=".xlsx, .xls, .csv" class="tw-hidden" id="file-upload" onchange="updateSelectedFileName(this)" />
+                <label for="file-upload" class="tw-cursor-pointer tw-flex tw-flex-col tw-items-center tw-gap-2">
+                    <div class="tw-w-12 tw-h-12 tw-rounded-full tw-bg-blue-50 tw-text-blue-600 tw-flex tw-items-center tw-justify-center">
+                        <i class="bi bi-file-earmark-spreadsheet tw-text-2xl"></i>
+                    </div>
+                    <span class="tw-font-semibold tw-text-blue-600">Click to upload spreadsheet (.xlsx, .xls, .csv)</span>
+                    <span class="tw-text-xs tw-text-gray-400">File should have columns like Email, Name, Company</span>
+                </label>
+                <div id="selected-file-name" class="tw-mt-3 tw-font-medium tw-text-sm tw-text-gray-700">
+                    {% if campaign.file %}
+                        📄 Selected: {{campaign.file|filename}}
+                    {% else %}
+                        No file chosen yet
+                    {% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label tw-font-medium tw-text-gray-700">Email Column Title in Spreadsheet</label>
+                <input type="text" class="form-control" name="email_lookup" 
+                        value="{% if campaign.email_lookup %}{{campaign.email_lookup}}{% else %}Email{% endif %}" 
+                        placeholder="Email" maxlength="30" required>
+                <div class="form-text tw-text-xs">The exact title of the column in your spreadsheet containing email addresses (defaults to "Email").</div>
+            </div>
+        </div>
+
+        <!-- Step 3: Choose Email Account & Template -->
+        <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-6 tw-shadow-sm tw-flex tw-flex-col tw-gap-4">
+            <h2 class="tw-font-bold tw-text-lg tw-text-gray-800 tw-flex tw-items-center tw-gap-2">
+                <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-blue-600 tw-text-white tw-flex tw-items-center tw-justify-center tw-text-sm">3</span>
+                <span>Sender Account & Email Template</span>
+            </h2>
+
+            <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                <div>
+                    <label class="form-label tw-font-medium tw-text-gray-700">Send From Account</label>
+                    <select class="form-select" name="from_email" required>
+                        <option value="" selected>Choose Sender Email</option>
+                        {% for e in emails %}
+                            <option {% if campaign.emailcampaigntemplate_set.first.email.id == e.id %}selected{% endif %} value="{{e.id}}">{{e.name|default:e.email}} ({{e.email}})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text tw-text-xs">Need to add another? <a href="{% url 'configure-email' %}" target="_blank" class="tw-text-blue-600">Connect account</a></div>
+                </div>
+
+                <div>
+                    <label class="form-label tw-font-medium tw-text-gray-700">Email Template</label>
+                    <div class="tw-flex tw-gap-2">
+                        <select class="form-select" name="template" required onchange="templatePreview()">
+                            <option value="" selected>Choose Template</option>
+                            {% for template in templates %}
+                                <option {% if campaign.emailcampaigntemplate_set.first.template.id == template.id %}selected{% endif %} value="{{template.id}}">{{template.name}}</option>
+                            {% endfor %}
+                        </select>
+                        <button onclick="viewTemplate(document.querySelector('select[name=template]').value)" type="button" class="btn btn-outline-secondary" title="Preview Template" data-bs-toggle="modal" data-bs-target="#templateViewModel">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                    <div class="form-text tw-text-xs">Want a new template? <a href="{% url 'email-template-create' %}" target="_blank" class="tw-text-blue-600">Create one</a></div>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label tw-font-medium tw-text-gray-700 d-flex align-items-center gap-1">
+                    <span>Schedule Send Date & Time</span>
+                    <span class="badge bg-primary-subtle text-primary fw-bold">IST (Indian Standard Time)</span>
+                </label>
+                {% with campaign.emailcampaigntemplate_set.first.schedule as utc_time %}
+                    {% utc_to_local utc_time request.COOKIES.user_timezone|default:'Asia/Kolkata' '%Y-%m-%dT%H:%M' as local_time %}
+                    <input type="datetime-local" class="form-control" name="schedule" id="schedule_time" required 
+                        value="{{ local_time }}" onchange="updateLocalTime()">
+                {% endwith %}
+                <div class="form-text tw-text-xs tw-text-primary tw-font-semibold mt-1" id="local-time"></div>
+            </div>
+
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="scheduled" name="scheduled" 
+                    {% if campaign.emailcampaigntemplate_set.first.scheduled %} checked {% endif %}
+                    {% if not campaign.emailcampaigntemplate_set.first %} checked {% endif %}
+                    id="scheduled">
+                <label class="form-check-label tw-font-medium tw-text-gray-700" for="scheduled">
+                    Activate and schedule campaign upon saving
+                </label>
+            </div>
+        </div>
+
+        <!-- Step 4 (Optional): Follow-ups -->
+        <div class="tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-6 tw-shadow-sm tw-flex tw-flex-col tw-gap-4">
+            <div class="tw-flex tw-justify-between tw-items-center">
+                <h2 class="tw-font-bold tw-text-lg tw-text-gray-800 tw-flex tw-items-center tw-gap-2">
+                    <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-indigo-600 tw-text-white tw-flex tw-items-center tw-justify-center tw-text-sm">4</span>
+                    <span>Automated Follow-ups (Optional)</span>
+                </h2>
+                <button type="button" class="btn btn-sm btn-outline-indigo" id="followup-btn">
+                    <i class="bi bi-plus-lg tw-mr-1"></i> Add Follow-up
+                </button>
+            </div>
+            <p class="tw-text-xs tw-text-gray-500">Automatically send a follow-up email a few days later if the recipient doesn't respond!</p>
+
+            <div class="tw-flex tw-flex-col tw-gap-3" id="followup-section">
+                {% for followup in campaign.emailcampaigntemplate_set.all|dictsort:"id" %}
+                    {% if not forloop.first and followup.followup %}
+                        <div class="tw-bg-gray-50 tw-border tw-border-gray-200 tw-rounded-lg tw-p-4 tw-flex tw-flex-col tw-gap-3" id="{{followup.id}}" title="follow-up">
+                            <div class="tw-flex tw-justify-between tw-items-center">
+                                <span class="tw-font-bold tw-text-sm tw-text-gray-700">Follow-up Step</span>
+                                <button class="btn btn-sm btn-outline-danger" type="button" onclick="deleteFollowup('{{followup.id}}')">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </div>
+
+                            <div class="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-3">
+                                <div>
+                                    <label class="form-label tw-text-xs tw-font-medium">Template</label>
+                                    <select class="form-select form-select-sm" name="followup-template">
+                                        <option value="">Choose Template</option>
+                                        {% for template in templates %}
+                                            <option {% if followup.template.id == template.id %}selected{% endif %} value="{{template.id}}">{{template.name}}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label tw-text-xs tw-font-medium">Condition</label>
+                                    <select class="form-select form-select-sm" name="rule">
+                                        <option value="">Select Condition</option>
+                                        {% for rule in rules %}
+                                            <option {% if followup.email_send_rule == rule.0 %}selected{% endif %} value="{{rule.0}}">{{rule.1}}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label tw-text-xs tw-font-medium">Schedule</label>
+                                    {% with followup.schedule as utc_time %}
+                                        {% utc_to_local utc_time request.COOKIES.user_timezone "%Y-%m-%dT%H:%M" as schedule%}
+                                        <input type="datetime-local" class="form-control form-control-sm" name="followup-schedule" value="{{ schedule }}">
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Hidden field for dynamic follow-up data -->
+            <input type="hidden" name="followups" id="hidden-followups" value="[]">
+        </div>
+
+        <!-- Step 5: Test Campaign on Two Emails -->
+        <div class="card border-0 shadow-sm rounded-4 bg-light p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="fw-bold text-dark d-flex align-items-center gap-2 mb-0">
+                    <span class="badge rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                        <i class="bi bi-flask-fill"></i>
+                    </span>
+                    <span>Test Campaign Before Launch</span>
+                </h5>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-1 fw-bold">
+                    Minimum 2 Test Emails Required
+                </span>
+            </div>
+            <p class="text-secondary small mb-3">
+                Send live test emails to at least two inboxes to verify formatting, personalization tags, and spam deliverability before launching.
+            </p>
+
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold text-dark small mb-1">
+                        <i class="bi bi-envelope text-primary me-1"></i> Test Email Address 1 <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" class="form-control" id="test-email-1" placeholder="e.g. yourname@gmail.com" value="{{ request.user.email }}">
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold text-dark small mb-1">
+                        <i class="bi bi-envelope text-primary me-1"></i> Test Email Address 2 <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" class="form-control" id="test-email-2" placeholder="e.g. colleague@company.com">
+                </div>
+            </div>
+
+            <!-- Optional Additional Email 3 -->
+            <div id="additional-test-email-row" class="row g-3 mt-1 d-none">
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold text-dark small mb-1">
+                        <i class="bi bi-envelope text-muted me-1"></i> Test Email Address 3 <span class="text-muted">(Optional)</span>
+                    </label>
+                    <input type="email" class="form-control" id="test-email-3" placeholder="e.g. thirdtest@example.com">
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3">
+                <button type="button" onclick="toggleAdditionalTestEmail()" class="btn btn-sm btn-link text-decoration-none p-0 text-primary small">
+                    <i class="bi bi-plus-circle me-1"></i> + Add another test recipient
+                </button>
+
+                <button type="button" id="btn-send-test" onclick="sendCampaignTestEmails()" class="btn btn-warning fw-bold px-4 py-2 shadow-sm d-flex align-items-center gap-2 rounded-3">
+                    <i class="bi bi-send-check-fill"></i>
+                    <span>Send Test Mails to Both Addresses</span>
+                </button>
+            </div>
+
+            <!-- Test status feedback alert -->
+            <div id="test-email-status" class="alert d-none mt-3 mb-0 small"></div>
+        </div>
+
+        <div class="tw-flex tw-justify-end tw-gap-3">
+            <a href="{% url 'email-campaigns' %}" class="btn btn-outline-secondary tw-px-5">Cancel</a>
+            <button type="submit" class="btn btn-primary tw-px-8 tw-py-2.5 tw-font-bold tw-shadow-sm">
+                <i class="bi bi-send-fill tw-mr-2"></i> Save & Launch Campaign
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<script>
+function updateSelectedFileName(input) {
+    const display = document.getElementById("selected-file-name");
+    if (input.files && input.files[0]) {
+        display.innerHTML = "📄 Selected: <b>" + input.files[0].name + "</b> (" + (input.files[0].size / 1024).toFixed(1) + " KB)";
+    }
+}
+
+function downloadSampleCsv() {
+    const csvContent = "data:text/csv;charset=utf-8," + "Email,name,company\njohn@example.com,John,Acme Corp\nsarah@example.com,Sarah,Tech Innovations\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "sample_recipients.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function toggleAdditionalTestEmail() {
+    const row = document.getElementById("additional-test-email-row");
+    row.classList.toggle("d-none");
+}
+
+function sendCampaignTestEmails() {
+    const fromEmailSelect = document.querySelector("select[name=from_email]");
+    const templateSelect = document.querySelector("select[name=template]");
+    const testEmail1 = document.getElementById("test-email-1").value.trim();
+    const testEmail2 = document.getElementById("test-email-2").value.trim();
+    const testEmail3Input = document.getElementById("test-email-3");
+    const testEmail3 = testEmail3Input ? testEmail3Input.value.trim() : "";
+    const statusDiv = document.getElementById("test-email-status");
+    const testBtn = document.getElementById("btn-send-test");
+
+    // Clear previous status
+    statusDiv.className = "alert d-none mt-3 mb-0 small";
+    statusDiv.innerHTML = "";
+
+    // Validation
+    if (!fromEmailSelect || !fromEmailSelect.value) {
+        statusDiv.className = "alert alert-danger mt-3 mb-0 small";
+        statusDiv.innerHTML = "⚠️ Please select a <b>Send From Account</b> in Step 3 before sending test emails.";
+        fromEmailSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        fromEmailSelect.focus();
+        return;
+    }
+
+    if (!templateSelect || !templateSelect.value) {
+        statusDiv.className = "alert alert-danger mt-3 mb-0 small";
+        statusDiv.innerHTML = "⚠️ Please select an <b>Email Template</b> in Step 3 before sending test emails.";
+        templateSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        templateSelect.focus();
+        return;
+    }
+
+    const testEmails = [];
+    if (testEmail1) testEmails.push(testEmail1);
+    if (testEmail2) testEmails.push(testEmail2);
+    if (testEmail3) testEmails.push(testEmail3);
+
+    if (testEmails.length < 2) {
+        statusDiv.className = "alert alert-danger mt-3 mb-0 small";
+        statusDiv.innerHTML = "⚠️ Please enter at least <b>two valid test email addresses</b> (Test Email 1 and Test Email 2).";
+        return;
+    }
+
+    // Disable button and show sending state
+    const originalBtnText = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Sending Test Mails...';
+    
+    statusDiv.className = "alert alert-info mt-3 mb-0 small";
+    statusDiv.innerHTML = '<div class="d-flex align-items-center gap-2"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span>Connecting to SMTP server and delivering test emails to ' + testEmails.join(', ') + '...</span></div>';
+
+    fetch("{% url 'campaign-test-mail' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": Cookies.get("csrftoken")
+        },
+        body: JSON.stringify({
+            from_email: fromEmailSelect.value,
+            template: templateSelect.value,
+            test_emails: testEmails
+        })
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (response.ok && data.success) {
+            statusDiv.className = "alert alert-success mt-3 mb-0 small";
+            statusDiv.innerHTML = '<b>🎉 Success!</b> ' + data.message + '<div class="mt-1 text-muted">Please check both inboxes (and Spam/Junk folders) to inspect the formatting.</div>';
+        } else {
+            statusDiv.className = "alert alert-danger mt-3 mb-0 small";
+            statusDiv.innerHTML = '<b>❌ Failed to send test emails:</b> ' + (data.error || "Unknown error occurred.");
+        }
+    })
+    .catch(err => {
+        statusDiv.className = "alert alert-danger mt-3 mb-0 small";
+        statusDiv.innerHTML = '<b>❌ Network or server error:</b> ' + err.message;
+    })
+    .finally(() => {
+        testBtn.disabled = false;
+        testBtn.innerHTML = originalBtnText;
+    });
+}
+</script>
+
+{{ templates|json_script:"templates" }}
+{{ rules|json_script:"rules" }}
+<script src="{% static "./js/email-product/campaign-create.js" %}"></script>
+{% endblock content %}
