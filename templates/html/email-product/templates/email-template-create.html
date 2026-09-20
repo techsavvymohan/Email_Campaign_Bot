@@ -1,0 +1,190 @@
+{% extends './html/base.html' %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+
+    <div class="tw-flex tw-flex-col tw-min-h-[100vh] tw-p-4 tw-place-items-center tw-gap-4 tw-max-w-5xl tw-mx-auto">
+        <div class="tw-w-full tw-flex tw-flex-col">
+            <div class="tw-text-center tw-mt-2">
+                <h1 class="tw-text-3xl tw-font-bold tw-text-gray-800">{% if edit %}Edit{% else %}Create{% endif %} Email Template</h1>
+                <p class="tw-text-gray-500 tw-mt-1">Write your email draft and add personalized variables.</p>
+            </div>
+
+            <div id="error-toast" class="toast tw-h-max tw-z-[5000] tw-fixed tw-top-[2%] tw-left-[50%] tw-translate-x-[-50%] align-items-center text-bg-danger border-0" 
+                role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body" id="error-toast-body">
+                    
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+           
+            <form action="{% url "email-template-create" %}{% if edit %}?edit={{edit}}{% endif %}" id="template-create" enctype="multipart/form-data" onsubmit="return validateTemplate()"
+                    method="POST" class="tw-flex tw-flex-col tw-gap-4 tw-mt-4 tw-bg-white tw-p-6 tw-rounded-xl tw-border tw-border-gray-200 tw-shadow-sm">
+                {% csrf_token %}
+
+                <div class="alert alert-danger tw-hidden" id="template-alert">
+                    {% for x in errors %}
+                        {{x}}
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label class="form-label tw-font-semibold tw-text-gray-700">Template Title</label>
+                    <input type="text" class="form-control" name="name" 
+                           value="{% if template.name %}{{template.name}}{% else %}Outreach Template{% endif %}" 
+                           placeholder="e.g. Sales Intro, Partnership Invite" required maxlength="35">
+                    <div class="form-text tw-text-xs">Internal name for this template.</div>
+                </div>
+
+                <div>
+                    <label class="form-label tw-font-semibold tw-text-gray-700">Email Subject Line</label>
+                    <input type="text" class="form-control" name="subject" id="subject-input"
+                            placeholder="e.g. Quick question for {% verbatim %}{{name}}{% endverbatim %}" value="{{template.subject}}" required maxlength="200" autofocus>
+                </div>
+
+                <!-- Easy Variable Inserter for Non-Tech Users -->
+                <div class="tw-bg-indigo-50 tw-border tw-border-indigo-100 tw-rounded-lg tw-p-3">
+                    <div class="tw-flex tw-items-center tw-justify-between tw-mb-2">
+                        <span class="tw-text-xs tw-font-bold tw-text-indigo-800 tw-uppercase tw-tracking-wide">
+                            ✨ Click to Insert Personalization Tags
+                        </span>
+                        <span class="tw-text-xs tw-text-indigo-600">Replaced automatically from your Excel sheet</span>
+                    </div>
+                    <div class="tw-flex tw-flex-wrap tw-gap-2">
+                        <button type="button" onclick="insertTag('{% verbatim %}{{name}}{% endverbatim %}')" class="btn btn-sm btn-light tw-border tw-border-indigo-200 tw-font-medium hover:tw-bg-indigo-100">
+                            + Recipient Name
+                        </button>
+                        <button type="button" onclick="insertTag('{% verbatim %}{{first_name}}{% endverbatim %}')" class="btn btn-sm btn-light tw-border tw-border-indigo-200 tw-font-medium hover:tw-bg-indigo-100">
+                            + First Name
+                        </button>
+                        <button type="button" onclick="insertTag('{% verbatim %}{{company}}{% endverbatim %}')" class="btn btn-sm btn-light tw-border tw-border-indigo-200 tw-font-medium hover:tw-bg-indigo-100">
+                            + Company Name
+                        </button>
+                        <button type="button" onclick="insertTag('{% verbatim %}{{from_name}}{% endverbatim %}')" class="btn btn-sm btn-light tw-border tw-border-indigo-200 tw-font-medium hover:tw-bg-indigo-100">
+                            + My Sender Name
+                        </button>
+                        <button type="button" onclick="insertTag('{% verbatim %}{{from_signature}}{% endverbatim %}')" class="btn btn-sm btn-light tw-border tw-border-indigo-200 tw-font-medium hover:tw-bg-indigo-100">
+                            + My Signature
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label tw-font-semibold tw-text-gray-700">Email Body</label>
+                    <div class="editor-container tw-relative">
+                        <input id="content" value="{{template.body}}" placeholder="write your draft" 
+                                type="hidden" name="body" required>
+                    
+                        <trix-editor input="content" required id="trix-editor" class="form-control tw-min-h-[250px] tw-max-h-[500px] tw-overflow-auto [&>a]:tw-text-blue-700" 
+                                                        placeholder="Write your email here. You can use personalized tags like {{name}} anywhere in the text..."></trix-editor>
+                        <div id="autoCompleteDropDown"></div>
+                    </div>
+                </div>
+
+                <div id="file-previewContainer" class="tw-flex tw-flex-wrap tw-gap-2 tw-grid-cols-2">
+                    {% for attachment in template.emailtemplateattachment_set.all %}
+                        <div class="tw-shadow-sm tw-p-2 tw-rounded-lg tw-bg-gray-50 tw-border tw-border-gray-200 tw-flex tw-gap-2 tw-items-center"
+                                    id="attachment-{{attachment.id}}"
+                                    >
+                            <input type="hidden" name="existing-attachments" value="{{attachment.id}}">
+                            <span class="tw-text-sm">{{ attachment.attachment|filename }}</span>
+                            <a href="{{ attachment.attachment.url }}" 
+                                    class="tw-text-base tw-text-blue-600 bi bi-download"
+                                 target="_blank">
+                            </a>
+                            <button type="button" class="btn-close tw-text-xs" onclick="removeFileAttachment('attachment-{{attachment.id}}')">
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="tw-flex tw-justify-between tw-items-center tw-pt-2">
+                    <label class="btn btn-outline-secondary tw-text-sm">
+                        <input type="file" name="attachment" multiple class="tw-hidden" id="file-upload" />
+                        <i class="bi bi-paperclip tw-mr-1"></i>
+                        <span>Attach Files</span>
+                    </label>
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" onclick="warnUserOnPublic()" name="public" value="public" {% if template.public %}checked{% endif %} id="flexCheckDefault">
+                        <label class="form-check-label tw-text-sm tw-text-gray-600" for="flexCheckDefault">
+                            Share to Public Templates
+                        </label>
+                    </div>
+                </div>
+
+                <div class="tw-flex tw-flex-wrap tw-gap-2 tw-pt-4 tw-border-t tw-border-gray-100 tw-items-center">
+                    <button onclick="templateRenderPreview()" type="button" class="btn btn-outline-dark" 
+                    data-bs-toggle="modal" data-bs-target="#templateViewModel">
+                        <i class="bi bi-eye tw-mr-1"></i> Preview with Sample Data
+                    </button>
+                    <button type="button" id="test-mail-btn" class="btn btn-outline-primary">
+                        <i class="bi bi-send tw-mr-1"></i> Send Test Email
+                    </button>
+                    <button type="submit" class="btn btn-success tw-ml-auto tw-px-5 tw-font-semibold">
+                        <i class="bi bi-check-lg tw-mr-1"></i> Save Template
+                    </button>
+                </div>
+
+                <!-- Test Variables section -->
+                <div class="tw-mt-4 tw-pt-4 tw-border-t tw-border-gray-100">
+                    <details class="tw-text-sm tw-text-gray-600">
+                        <summary class="tw-cursor-pointer tw-font-medium tw-text-blue-600">⚙️ Advanced: Sample preview data (optional)</summary>
+                        <div class="tw-mt-2">
+                            <textarea name="variables" class="form-control !tw-max-h-[150px] tw-font-mono tw-text-xs" 
+                                        id="variables" oninput="validateVariables()">{{template.variables}}</textarea>
+                        </div>
+                    </details>
+                </div>
+            </form>
+
+            <!-- Usage Guide for Non-Tech Users -->
+            <div class="tw-bg-gray-50 tw-border tw-border-gray-200 tw-rounded-xl tw-p-5 tw-mt-6 tw-text-gray-700">
+                <h3 class="tw-font-bold tw-text-base tw-mb-2">💡 How Personalization Works</h3>
+                <p class="tw-text-sm tw-leading-relaxed tw-mb-3">
+                    Add <code>{% verbatim %}{{name}}{% endverbatim %}</code> or <code>{% verbatim %}{{company}}{% endverbatim %}</code> to your email body or subject. 
+                    When you launch your campaign and upload your spreadsheet, each email will automatically be customized for that specific recipient!
+                </p>
+                <div class="tw-bg-white tw-p-3 tw-rounded-lg tw-border tw-border-gray-200 tw-text-sm">
+                    <b class="tw-text-gray-900">Example Template:</b>
+                    <div class="tw-mt-1 tw-text-gray-600 tw-font-mono tw-text-xs">
+                        Hi {% verbatim %}{{name}}{% endverbatim %},<br>
+                        I noticed your work at {% verbatim %}{{company}}{% endverbatim %} and wanted to reach out regarding our collaboration.<br><br>
+                        {% verbatim %}{{from_signature}}{% endverbatim %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+    function insertTag(tag) {
+        const trix = document.querySelector("trix-editor");
+        if (trix && trix.editor) {
+            trix.editor.insertString(tag);
+        } else {
+            const subject = document.getElementById("subject-input");
+            if (subject) {
+                subject.value += " " + tag;
+            }
+        }
+    }
+    </script>
+
+    <style>
+        trix-toolbar .trix-button {
+            background: #fff !important;
+        }
+    </style>
+
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
+    <script type="text/javascript" src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>
+
+    <script src="{% static "./js/utils/trix-autocomplete.js" %}"></script>
+    <script src="{% static "./js/email-product/email-template-create.js" %}"></script>
+
+{% endblock content %}

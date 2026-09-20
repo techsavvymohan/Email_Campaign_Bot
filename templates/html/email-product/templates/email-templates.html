@@ -1,0 +1,130 @@
+{% extends './html/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="tw-flex tw-flex-col tw-min-h-[100vh] tw-p-4 tw-place-items-center tw-gap-6 tw-max-w-6xl tw-mx-auto">
+
+    <div class="modal model-dialog fade modal-dialog-centered !tw-hidden" id="delete-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="exampleModalLabel">Delete Template</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modal-body">
+              Are you sure you want to delete this template?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="" id="modal-btn-delete" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+          </div>
+        </div>
+    </div>
+
+    <!-- Header & Step Guidance -->
+    <div class="tw-text-center tw-mt-2">
+        <h1 class="tw-text-3xl tw-font-bold tw-text-gray-800">Email Templates</h1>
+        <p class="tw-text-gray-500 tw-mt-1">Design reusable, personalized templates with variables like {% verbatim %}{{name}}{% endverbatim %}.</p>
+    </div>
+
+    <!-- 3-step workflow banner -->
+    <div class="tw-w-full tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-p-4 tw-shadow-sm tw-flex tw-flex-wrap tw-justify-around tw-items-center tw-gap-4">
+        <a href="{% url 'configurations' %}" class="tw-flex tw-items-center tw-gap-2 tw-text-gray-500 hover:tw-text-blue-600 tw-font-medium">
+            <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-gray-200 tw-text-gray-700 tw-flex tw-items-center tw-justify-center tw-text-sm">1</span>
+            <span>Connect Email</span>
+        </a>
+        <i class="bi bi-arrow-right tw-text-gray-400 tw-hidden md:tw-block"></i>
+        <div class="tw-flex tw-items-center tw-gap-2 tw-text-blue-600 tw-font-bold">
+            <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-blue-600 tw-text-white tw-flex tw-items-center tw-justify-center tw-text-sm">2</span>
+            <span>Create Template</span>
+        </div>
+        <i class="bi bi-arrow-right tw-text-gray-400 tw-hidden md:tw-block"></i>
+        <a href="{% url 'email-campaigns' %}" class="tw-flex tw-items-center tw-gap-2 tw-text-gray-500 hover:tw-text-blue-600 tw-font-medium">
+            <span class="tw-w-7 tw-h-7 tw-rounded-full tw-bg-gray-200 tw-text-gray-700 tw-flex tw-items-center tw-justify-center tw-text-sm">3</span>
+            <span>Send Campaign</span>
+        </a>
+    </div>
+
+    <div class="tw-flex tw-flex-wrap tw-gap-4 tw-justify-center tw-w-full tw-p-2">
+
+        <!-- Create Template Card -->
+        <a class="tw-flex tw-flex-col tw-border-2 tw-border-dashed tw-border-indigo-300 hover:tw-border-indigo-500 hover:tw-bg-indigo-50/50 tw-transition-all
+                    tw-text-center tw-items-center tw-justify-center 
+                    tw-w-[280px] tw-min-h-[220px] 
+                    tw-rounded-xl tw-p-5 tw-group"
+                    href="{% url "email-template-create" %}"
+                    >
+            <div class="tw-w-12 tw-h-12 tw-rounded-full tw-bg-indigo-100 tw-text-indigo-600 tw-flex tw-items-center tw-justify-center tw-mb-2 group-hover:tw-scale-110 tw-transition-transform">
+                <i class="bi bi-plus-lg tw-text-2xl"></i>
+            </div>
+            <p class="tw-font-bold tw-text-gray-800 tw-m-0">Create New Template</p>
+            <span class="tw-text-xs tw-text-gray-500 tw-mt-1">Personalized outreach draft</span>
+        </a>  
+
+        {% for template in private_templates %}
+            <div class="tw-flex tw-flex-col tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-shadow-sm hover:tw-shadow-md tw-transition-shadow tw-w-[280px] tw-min-h-[220px] tw-p-5 tw-justify-between">
+                <div>
+                    <div class="tw-flex tw-items-center tw-justify-between tw-mb-2">
+                        <span class="tw-font-bold tw-text-gray-800 tw-text-base tw-truncate">{{template.name}}</span>
+                        <span class="tw-text-xs tw-bg-gray-100 tw-text-gray-600 tw-px-2 tw-py-0.5 tw-rounded">#{{template.id}}</span>
+                    </div>
+                    <div class="tw-text-xs tw-text-gray-500 tw-line-clamp-2">
+                        <b>Subject:</b> {{template.subject}}
+                    </div>
+                </div>
+
+                <div class="tw-flex tw-gap-2 tw-pt-4 tw-border-t tw-border-gray-100 tw-items-center">
+                    <button onclick="viewTemplate({{template.id}})" class="btn btn-sm btn-outline-secondary" 
+                        data-bs-placement="bottom" title="Preview"
+                        data-bs-toggle="modal" data-bs-target="#templateViewModel"
+                    >
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'email-template-create' %}?copy={{ template.id }}" 
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Duplicate">
+                        <i class="bi bi-copy"></i>
+                    </a>
+                    <a class="btn btn-sm btn-primary tw-flex-1" href="{% url 'email-template-create' %}?edit={{ template.id }}">
+                        <i class="bi bi-pencil-fill tw-mr-1"></i> Edit
+                    </a>
+                    <button type="button" onclick="onDeleteTemplate('{% url 'email-template-delete' id=template.id %}', `{{ template.name }} #{{ template.id }}`)" 
+                            class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#delete-modal">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>                
+            </div>
+        {% endfor %}
+    </div>  
+
+    {% if public_templates %}
+    <div class="tw-w-full tw-mt-4">
+        <h2 class="tw-text-xl tw-font-bold tw-text-gray-700 tw-mb-3">Community Templates</h2>
+        <div class="tw-flex tw-flex-wrap tw-gap-4">
+            {% for template in public_templates %}
+                <div class="tw-flex tw-flex-col tw-bg-white tw-border tw-border-gray-200 tw-rounded-xl tw-shadow-sm tw-w-[280px] tw-p-4 tw-justify-between">
+                    <div>
+                        <b class="tw-text-gray-800">{{template.name}}</b>
+                        <p class="tw-text-xs tw-text-gray-500 tw-mt-1 tw-line-clamp-2"><b>Subject:</b> {{template.subject}}</p>
+                    </div>
+                    <div class="tw-flex tw-gap-2 tw-mt-4 tw-pt-3 tw-border-t tw-border-gray-100">
+                        <button onclick="viewTemplate({{template.id}})" class="btn btn-sm btn-outline-secondary" 
+                            data-bs-toggle="modal" data-bs-target="#templateViewModel">
+                            <i class="bi bi-eye"></i> Preview
+                        </button>
+                        <a class="btn btn-sm btn-outline-primary tw-flex-1" href="{% url 'email-template-create' %}?copy={{ template.id }}">
+                            <i class="bi bi-copy tw-mr-1"></i> Use Template
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+<script src="{% static "./js/email-product/email-templates.js" %}"></script>
+{% endblock content %}
