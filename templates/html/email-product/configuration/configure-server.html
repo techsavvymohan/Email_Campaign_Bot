@@ -1,0 +1,271 @@
+{% extends './html/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4 d-flex flex-column align-items-center" style="min-height: 100vh; max-width: 800px;">
+    
+    <div class="text-center mb-4 mt-2">
+        <h1 class="fw-bold text-dark fs-2 mb-1">Connect Email via SMTP</h1>
+        <p class="text-secondary fs-6 mb-0">Connect your Gmail or professional custom domain email to send automated campaigns.</p>
+    </div>
+
+    <!-- Direct Choice Tabs: Gmail vs Professional Email -->
+    <div class="d-flex justify-content-center w-100 mb-4">
+        <div class="d-flex p-1 rounded-3 bg-light border" style="max-width: 460px; width: 100%;">
+            <button type="button" id="tab-gmail" onclick="selectProvider('gmail')"
+                class="btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition
+                {% if email_type == 'gmail' or not email_type %}bg-white text-danger shadow-sm{% else %}text-secondary bg-transparent{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+                    <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                    <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.9.1-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9c-.2-.7-.4-1.4-.4-2.4z"/>
+                    <path fill="#34A853" d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"/>
+                </svg>
+                <span>Gmail (SMTP)</span>
+            </button>
+
+            <button type="button" id="tab-professional" onclick="selectProvider('professional')"
+                class="btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition
+                {% if email_type == 'professional' %}btn-dark text-white shadow-sm{% else %}text-secondary bg-transparent{% endif %}">
+                <i class="bi bi-briefcase-fill text-warning"></i>
+                <span>Professional Email</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card shadow-sm border rounded-4 w-100 mb-4" style="max-width: 540px;">
+        <div class="card-body p-4">
+            
+            <div class="alert alert-danger text-center {% if not errors %}d-none{% endif %}" id="configuration-alert">
+                {% for x in errors %}
+                    <div>{{x}}</div>
+                {% endfor %}
+            </div>
+
+            <!-- Gmail Info Banner -->
+            <div id="gmail-info-banner" class="alert alert-danger bg-danger-subtle border-danger-subtle text-danger-emphasis rounded-3 p-3 mb-4 {% if email_type == 'professional' %}d-none{% endif %}">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-lightning-charge-fill text-danger fs-5 mt-n1"></i>
+                    <div class="small">
+                        <b>Zero-Config Gmail:</b> Server host, port, and IMAP are pre-configured automatically. You only need your Gmail address and 16-character Google App Password.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Professional Info Banner -->
+            <div id="professional-info-banner" class="alert alert-primary bg-primary-subtle border-primary-subtle text-primary-emphasis rounded-3 p-3 mb-4 {% if email_type != 'professional' %}d-none{% endif %}">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-shield-check text-primary fs-5 mt-n1"></i>
+                    <div class="small">
+                        <b>Professional Work Email:</b> Connect your custom domain email (e.g. <code>you@company.com</code>) using your organization's standard SMTP settings.
+                    </div>
+                </div>
+            </div>
+
+            <form action="" id="configuration-form" method="post" 
+                class="d-flex flex-column gap-3" onsubmit="return checkSubmition();">
+                {% csrf_token %}
+
+                <input type="hidden" name="email_type" id="email-type-input" value="{{email_type|default:'gmail'}}">
+
+                <div>
+                    <label class="form-label fw-semibold text-dark small mb-1">Sender / Display Name</label>
+                    <input type="text" class="form-control py-2" name="name" id="basic-url" autofocus 
+                            value="{{configuration.name}}" placeholder="e.g. Mohan Singh">
+                    <div class="form-text small">The sender name recipients will see in their inbox.</div>
+                </div>
+
+                <div>
+                    <label class="form-label fw-semibold text-dark small mb-1" id="email-label">
+                        {% if email_type == 'professional' %}Work Email Address{% else %}Gmail Address{% endif %}
+                    </label>
+                    <input type="email" class="form-control py-2" maxlength="450" name="email" id="email-input" 
+                            value="{{configuration.email}}" 
+                            placeholder="{% if email_type == 'professional' %}you@yourcompany.com{% else %}you@gmail.com{% endif %}" required>
+                </div>
+
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label class="form-label fw-semibold text-dark small mb-0" id="password-label">
+                            {% if email_type == 'professional' %}Password / App Password{% else %}16-Character Google App Password{% endif %}
+                        </label>
+                        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" 
+                           id="google-app-pass-link" 
+                           class="small fw-bold text-primary text-decoration-none {% if email_type == 'professional' %}d-none{% endif %}">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Generate App Password
+                        </a>
+                    </div>
+                    <input type="password" class="form-control py-2" maxlength="80" name="password" id="password-input" 
+                            value="{{configuration.password}}" placeholder="••••••••••••••••" required>
+                    <div class="form-text small" id="password-hint">
+                        {% if email_type == 'professional' %}
+                            Use your corporate mailbox password or generated SMTP app password.
+                        {% else %}
+                            <span class="text-primary fw-medium">💡 Generate in 30 seconds:</span> Google Account &rarr; Security &rarr; App passwords &rarr; Create "Email Bot".
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Technical Fields (Visible only for Professional Email, Hidden for Gmail) -->
+                <div id="server-settings-section" class="{% if email_type != 'professional' %}d-none{% endif %} d-flex flex-column gap-3 pt-3 border-top">
+                    <div class="row g-2">
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold text-dark small mb-1">SMTP Host</label>
+                            <input type="text" class="form-control py-2" maxlength="200" name="host" id="host-input" 
+                                    value="{{configuration.host|default:'smtp.gmail.com'}}" 
+                                    placeholder="smtp.yourcompany.com" required>
+                            <div class="form-text small">e.g. smtp.office365.com</div>
+                        </div>
+
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold text-dark small mb-1">Port</label>
+                            <input type="number" class="form-control py-2" name="port" id="port-input" min="0" oninput="validity.valid||(value='');"
+                                    value="{{configuration.port|default:'587'}}" 
+                                    placeholder="587" required>
+                            <div class="form-text small">587 (TLS) or 465 (SSL)</div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="form-label fw-semibold text-dark small mb-1">IMAP Host <span class="text-muted fw-normal">(Optional)</span></label>
+                        <input type="text" class="form-control py-2" maxlength="200" name="imap_host" id="imap-host-input" 
+                                value="{{configuration.imap_host|default:'imap.gmail.com'}}" 
+                                placeholder="imap.yourcompany.com">
+                        <div class="form-text small">Used to detect replies and stop automated follow-ups.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="form-label fw-semibold text-dark small mb-1">Email Signature <span class="text-muted fw-normal">(Optional)</span></label>
+                    <textarea class="form-control" style="max-height: 120px;" 
+                            name="signature" maxlength="250" 
+                            placeholder="Best regards,&#10;Mohan Singh&#10;Founder & CEO">{{configuration.signature}}</textarea>
+                    <div class="form-text small">Automatically inserted when using the <code>{% verbatim %}{{from_signature}}{% endverbatim %}</code> tag.</div>
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn w-100 py-3 fw-bold fs-6 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mt-3
+                    {% if email_type == 'professional' %}btn-dark{% else %}btn-primary{% endif %}">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span id="submit-btn-text">
+                        {% if email_type == 'professional' %}Connect Professional Email{% else %}Connect Gmail Account{% endif %}
+                    </span>
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- Direct Step-by-Step Helper for Gmail Users -->
+    <div id="gmail-guide-box" class="card border bg-light rounded-4 w-100 p-4 mb-4 {% if email_type == 'professional' %}d-none{% endif %}" style="max-width: 540px;">
+        <h3 class="fw-bold fs-6 text-dark mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-question-circle-fill text-danger"></i>
+            How to get your 16-character Google App Password
+        </h3>
+
+        <div class="d-flex flex-column gap-2 small text-secondary">
+            <div class="d-flex align-items-start gap-2">
+                <span class="badge rounded-circle bg-danger-subtle text-danger fw-bold" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;">1</span>
+                <span>Open <a href="https://myaccount.google.com/security" target="_blank" class="fw-semibold text-primary text-decoration-none">Google Security</a> and confirm <b>2-Step Verification</b> is ON.</span>
+            </div>
+            <div class="d-flex align-items-start gap-2">
+                <span class="badge rounded-circle bg-danger-subtle text-danger fw-bold" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;">2</span>
+                <span>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" class="fw-semibold text-primary text-decoration-none">Google App Passwords</a> directly.</span>
+            </div>
+            <div class="d-flex align-items-start gap-2">
+                <span class="badge rounded-circle bg-danger-subtle text-danger fw-bold" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;">3</span>
+                <span>Type <b>Email Bot</b> as the app name, click <b>Create</b>, and paste the 16-letter code into the box above.</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function selectProvider(provider) {
+    const tabGmail = document.getElementById("tab-gmail");
+    const tabProfessional = document.getElementById("tab-professional");
+    const emailTypeInput = document.getElementById("email-type-input");
+    const emailLabel = document.getElementById("email-label");
+    const emailInput = document.getElementById("email-input");
+    const passwordLabel = document.getElementById("password-label");
+    const passwordHint = document.getElementById("password-hint");
+    const googleAppPassLink = document.getElementById("google-app-pass-link");
+    const serverSettingsSection = document.getElementById("server-settings-section");
+    const hostInput = document.getElementById("host-input");
+    const portInput = document.getElementById("port-input");
+    const imapHostInput = document.getElementById("imap-host-input");
+    const gmailInfoBanner = document.getElementById("gmail-info-banner");
+    const professionalInfoBanner = document.getElementById("professional-info-banner");
+    const gmailGuideBox = document.getElementById("gmail-guide-box");
+    const submitBtn = document.getElementById("submit-btn");
+    const submitBtnText = document.getElementById("submit-btn-text");
+
+    if (provider === "gmail") {
+        emailTypeInput.value = "gmail";
+        
+        // Update Tabs styling
+        tabGmail.className = "btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition bg-white text-danger shadow-sm";
+        tabProfessional.className = "btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition text-secondary bg-transparent";
+        
+        // Hide server settings
+        serverSettingsSection.classList.add("d-none");
+        hostInput.value = "smtp.gmail.com";
+        portInput.value = "587";
+        imapHostInput.value = "imap.gmail.com";
+
+        // Show Gmail elements
+        gmailInfoBanner.classList.remove("d-none");
+        professionalInfoBanner.classList.add("d-none");
+        gmailGuideBox.classList.remove("d-none");
+        googleAppPassLink.classList.remove("d-none");
+
+        // Labels & placeholders
+        emailLabel.innerText = "Gmail Address";
+        emailInput.placeholder = "you@gmail.com";
+        passwordLabel.innerText = "16-Character Google App Password";
+        passwordHint.innerHTML = '<span class="text-primary fw-medium">💡 Generate in 30 seconds:</span> Google Account &rarr; Security &rarr; App passwords &rarr; Create "Email Bot".';
+
+        // Submit Button
+        submitBtn.className = "btn btn-primary w-100 py-3 fw-bold fs-6 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mt-3";
+        submitBtnText.innerText = "Connect Gmail Account";
+
+    } else {
+        emailTypeInput.value = "professional";
+
+        // Update Tabs styling
+        tabGmail.className = "btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition text-secondary bg-transparent";
+        tabProfessional.className = "btn flex-fill py-2.5 px-3 fw-bold fs-6 d-flex align-items-center justify-content-center gap-2 rounded-3 border-0 transition btn-dark text-white shadow-sm";
+
+        // Show server settings
+        serverSettingsSection.classList.remove("d-none");
+        if (hostInput.value === "smtp.gmail.com") {
+            hostInput.value = "";
+        }
+        if (imapHostInput.value === "imap.gmail.com") {
+            imapHostInput.value = "";
+        }
+        if (!portInput.value) {
+            portInput.value = "587";
+        }
+
+        // Hide Gmail elements
+        gmailInfoBanner.classList.add("d-none");
+        professionalInfoBanner.classList.remove("d-none");
+        gmailGuideBox.classList.add("d-none");
+        googleAppPassLink.classList.add("d-none");
+
+        // Labels & placeholders
+        emailLabel.innerText = "Work Email Address";
+        emailInput.placeholder = "you@yourcompany.com";
+        passwordLabel.innerText = "Password / App Password";
+        passwordHint.innerHTML = "Use your corporate mailbox password or generated SMTP app password.";
+
+        // Submit Button
+        submitBtn.className = "btn btn-dark w-100 py-3 fw-bold fs-6 rounded-3 shadow-sm d-flex align-items-center justify-content-center gap-2 mt-3";
+        submitBtnText.innerText = "Connect Professional Email";
+    }
+}
+</script>
+<script src="{% static './js/email-product/configuration.js' %}"></script>
+{% endblock content %}
